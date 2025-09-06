@@ -1270,9 +1270,15 @@
                     <input type="text" id="other-animal" placeholder="Ex: tatu, preguiça, tamanduá...">
                 </div>
 
-                <div class="form-group">
-                    <label for="species">Espécie (opcional):</label>
-                    <input type="text" id="species" placeholder="Ex: coruja-buraqueira, carcará, jiboia...">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="species">Espécie (opcional):</label>
+                        <input type="text" id="species" placeholder="Ex: coruja-buraqueira, carcará, jiboia...">
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity">Quantidade:</label>
+                        <input type="number" id="quantity" value="1" min="1" required>
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -1348,7 +1354,7 @@
             ave_rapina: { icon: '🦅', name: 'Aves de Rapina', color: '#3498db' },
             passeriforme: { icon: '🐦', name: 'Passeriformes', color: '#1abc9c' },
             ave_outras: { icon: '🕊️', name: 'Outras Aves', color: '#85c1e9' },
-            sariguê: { icon: '🐀', name: 'Sariguês', color: '#9b59b6' },
+            'sariguê': { icon: '🐀', name: 'Sariguês', color: '#9b59b6' },
             primata: { icon: '🐒', name: 'Primatas', color: '#e67e22' },
             mamifero: { icon: '🦔', name: 'Outros Mamíferos', color: '#8e44ad' },
             outros: { icon: '❓', name: 'Outros', color: '#7f8c8d' }
@@ -1708,6 +1714,9 @@
             let title, description;
             const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
             
+            // MODIFICADO: Usa reduce para somar as quantidades em vez de contar o tamanho do array
+            const totalAnimalsInPeriod = filteredData.reduce((sum, rescue) => sum + (rescue.quantity || 1), 0);
+
             switch (period) {
                 case 'all': title = 'Todos os Dados'; description = 'Mostrando todos os resgates registrados.'; break;
                 case 'today': title = 'Hoje'; description = `Resgates de hoje (${formatDate(getTodayLocal())}).`; break;
@@ -1732,7 +1741,7 @@
             }
             
             infoElement.innerHTML = `<h4>Período Atual: ${title}</h4><p>${description}</p>`;
-            subtitleElement.textContent = `${title} - ${filteredData.length} resgates - 🔐 Autenticado`;
+            subtitleElement.textContent = `${title} - ${totalAnimalsInPeriod} animais resgatados - 🔐 Autenticado`;
         }
 
         function updateConnectionStatus(isFirebase) {
@@ -1771,6 +1780,8 @@
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 if (data.location) data.location = normalizeLocation(data.location);
+                // Garante que a quantidade seja um número, default 1
+                data.quantity = data.quantity ? parseInt(data.quantity, 10) : 1;
                 firebaseData.push({ id: doc.id, ...data });
             });
 
@@ -1791,7 +1802,8 @@
                 ...item,
                 id: `sample_${index + 1}`,
                 location: normalizeLocation(item.location),
-                timestamp: new Date()
+                timestamp: new Date(),
+                quantity: item.quantity || 1 // Garante a quantidade
             }));
             
             cleanupLocationData();
@@ -1874,13 +1886,17 @@
             filterAndUpdateTimeline();
         }
 
+        // MODIFICADO: Calcula o total de animais somando as quantidades
         function updateCounters() {
-            animateCounter('total-count', filteredData.length);
+            const totalAnimals = filteredData.reduce((sum, rescue) => sum + (rescue.quantity || 1), 0);
+            animateCounter('total-count', totalAnimals);
         }
-
+        
+        // MODIFICADO: Calcula as estatísticas somando as quantidades
         function updateStatsGrid() {
             const animalCounts = filteredData.reduce((acc, rescue) => {
-                acc[rescue.animal] = (acc[rescue.animal] || 0) + 1;
+                const quantity = rescue.quantity || 1;
+                acc[rescue.animal] = (acc[rescue.animal] || 0) + quantity;
                 return acc;
             }, {});
 
@@ -1908,7 +1924,7 @@
         function animateCounter(elementId, targetValue) {
             const element = document.getElementById(elementId);
             let currentValue = 0;
-            const increment = Math.max(1, targetValue / 30);
+            const increment = Math.max(1, Math.ceil(targetValue / 30));
             
             const timer = setInterval(() => {
                 currentValue += increment;
@@ -1932,10 +1948,12 @@
             createTimeChart();
             createAreaTypeChart();
         }
-
+        
+        // MODIFICADO: O gráfico agora soma as quantidades
         function createAnimalDistributionChart() {
             const animalCounts = filteredData.reduce((acc, rescue) => {
-                acc[rescue.animal] = (acc[rescue.animal] || 0) + 1;
+                const quantity = rescue.quantity || 1;
+                acc[rescue.animal] = (acc[rescue.animal] || 0) + quantity;
                 return acc;
             }, {});
             
@@ -1966,11 +1984,13 @@
                 }
             });
         }
-
+        
+        // MODIFICADO: O gráfico agora soma as quantidades por pelotão
         function createPelotaoChart() {
             const pelotaoCounts = filteredData.reduce((acc, rescue) => {
                 if (rescue.pelotao) {
-                    acc[rescue.pelotao] = (acc[rescue.pelotao] || 0) + 1;
+                    const quantity = rescue.quantity || 1;
+                    acc[rescue.pelotao] = (acc[rescue.pelotao] || 0) + quantity;
                 }
                 return acc;
             }, {});
@@ -1986,7 +2006,7 @@
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Resgates',
+                        label: 'Animais Resgatados',
                         data: data,
                         backgroundColor: ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#34495e'],
                         borderRadius: 5
@@ -2001,14 +2021,16 @@
                 }
             });
         }
-
+        
+        // MODIFICADO: O gráfico agora soma as quantidades por período
         function createPeriodChart() {
             let chartData, chartLabels, chartTitle;
 
             if (currentPeriod === 'all' || currentPeriod === 'year' || currentPeriod === 'lastYear' || currentPeriod === 'custom') {
                 const monthCounts = filteredData.reduce((acc, r) => {
                     const month = r.date.substring(0, 7);
-                    acc[month] = (acc[month] || 0) + 1;
+                    const quantity = r.quantity || 1;
+                    acc[month] = (acc[month] || 0) + quantity;
                     return acc;
                 }, {});
                 chartLabels = Object.keys(monthCounts).sort();
@@ -2020,7 +2042,8 @@
                 });
             } else { // Diário ou semanal
                  const dayCounts = filteredData.reduce((acc, r) => {
-                    acc[r.date] = (acc[r.date] || 0) + 1;
+                    const quantity = r.quantity || 1;
+                    acc[r.date] = (acc[r.date] || 0) + quantity;
                     return acc;
                 }, {});
                 chartLabels = Object.keys(dayCounts).sort();
@@ -2037,7 +2060,7 @@
                 data: {
                     labels: chartLabels,
                     datasets: [{
-                        label: 'Resgates',
+                        label: 'Animais Resgatados',
                         data: chartData,
                         borderColor: '#3498db',
                         backgroundColor: 'rgba(52, 152, 219, 0.1)',
@@ -2055,11 +2078,13 @@
             });
         }
         
+        // MODIFICADO: O gráfico agora soma as quantidades por horário
         function createTimeChart() {
             const hourCounts = filteredData.reduce((acc, rescue) => {
                 const hour = parseInt(rescue.time.split(':')[0]);
                 const period = hour < 6 ? 'Madrugada' : hour < 12 ? 'Manhã' : hour < 18 ? 'Tarde' : 'Noite';
-                acc[period] = (acc[period] || 0) + 1;
+                const quantity = rescue.quantity || 1;
+                acc[period] = (acc[period] || 0) + quantity;
                 return acc;
             }, {});
 
@@ -2069,7 +2094,7 @@
                 data: {
                     labels: ['Madrugada', 'Manhã', 'Tarde', 'Noite'],
                     datasets: [{
-                        label: 'Resgates',
+                        label: 'Animais Resgatados',
                         data: [
                             hourCounts['Madrugada'] || 0,
                             hourCounts['Manhã'] || 0,
@@ -2088,7 +2113,8 @@
                 }
             });
         }
-
+        
+        // MODIFICADO: O gráfico agora soma as quantidades por tipo de área
         function createAreaTypeChart() {
             const peconhentos = ['serpente', 'escorpiao', 'aranha'];
             // Filtra apenas os resgates relevantes para este gráfico
@@ -2096,7 +2122,8 @@
 
             const areaCounts = relevantData.reduce((acc, rescue) => {
                 const type = rescue.areaType || 'nao_informado';
-                acc[type] = (acc[type] || 0) + 1;
+                const quantity = rescue.quantity || 1;
+                acc[type] = (acc[type] || 0) + quantity;
                 return acc;
             }, {});
 
@@ -2119,26 +2146,28 @@
                 }
             });
         }
-
+        
+        // MODIFICADO: As contagens por local agora somam as quantidades
         function updateLocationStats() {
             const cityCounts = {};
             const salvadorNeighborhoods = {};
 
             filteredData.forEach(rescue => {
+                const quantity = rescue.quantity || 1;
                 const normalizedLocation = normalizeLocation(rescue.location);
                 if (normalizedLocation.includes(' - ')) {
                     const parts = normalizedLocation.split(' - ');
                     const city = parts[0].trim();
                     const neighborhood = parts[1].trim();
                     
-                    cityCounts[city] = (cityCounts[city] || 0) + 1;
+                    cityCounts[city] = (cityCounts[city] || 0) + quantity;
                     
                     if (city.toLowerCase() === 'salvador') {
-                        salvadorNeighborhoods[neighborhood] = (salvadorNeighborhoods[neighborhood] || 0) + 1;
+                        salvadorNeighborhoods[neighborhood] = (salvadorNeighborhoods[neighborhood] || 0) + quantity;
                     }
                 } else {
                     const city = normalizedLocation.trim();
-                    cityCounts[city] = (cityCounts[city] || 0) + 1;
+                    cityCounts[city] = (cityCounts[city] || 0) + quantity;
                 }
             });
 
@@ -2198,7 +2227,8 @@
 
             updateTimelineWithData(timelineData);
         }
-
+        
+        // MODIFICADO: Exibe a quantidade na timeline se for maior que 1
         function updateTimelineWithData(data) {
             const timeline = document.getElementById('timeline');
             document.getElementById('timeline-count').textContent = data.length;
@@ -2218,12 +2248,17 @@
                 const species = rescue.species ? ` (${rescue.species})` : '';
                 const observations = rescue.observations ? `<br><small>Obs: ${rescue.observations}</small>` : '';
                 const pelotaoInfo = rescue.pelotao ? `<span style="font-weight: bold; color: #555;"> - ${rescue.pelotao}</span>` : '';
+                
+                // NOVO: Adiciona um selo de quantidade se for maior que 1
+                const quantityInfo = (rescue.quantity && rescue.quantity > 1) 
+                    ? `<span style="background: #e67e22; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 8px; font-weight: bold;">x${rescue.quantity}</span>` 
+                    : '';
 
                 return `
                     <div class="timeline-item" style="border-left-color: ${config.color}; --delay: ${index * 0.05}s">
                         <div class="timeline-time">${rescue.time}</div>
                         <div class="timeline-content">
-                            <div class="timeline-animal" style="color: ${config.color}">${config.icon} ${animalName}${species}</div>
+                            <div class="timeline-animal" style="color: ${config.color}">${config.icon} ${animalName}${species}${quantityInfo}</div>
                             <div class="timeline-location">${rescue.location}${pelotaoInfo}</div>
                             <small style="color: #999;">${formatDate(rescue.date)}</small>
                             ${observations}
@@ -2253,6 +2288,7 @@
             
             document.getElementById('date').value = today;
             document.getElementById('time').value = currentTime;
+            document.getElementById('quantity').value = 1; // MODIFICADO: Garante que a quantidade comece em 1
             
             handleAnimalChange(); // Garante que o form comece no estado correto
             
@@ -2267,6 +2303,7 @@
             document.getElementById('modal-title').textContent = 'Editar Resgate';
             document.getElementById('animal').value = rescue.animal;
             document.getElementById('species').value = rescue.species || '';
+            document.getElementById('quantity').value = rescue.quantity || 1; // MODIFICADO: Preenche a quantidade
             document.getElementById('date').value = rescue.date;
             document.getElementById('time').value = rescue.time;
             document.getElementById('location').value = rescue.location;
@@ -2298,13 +2335,15 @@
                 showError('Erro ao excluir resgate: ' + error.message);
             }
         }
-
+        
+        // MODIFICADO: Adiciona a quantidade ao objeto de dados a ser salvo
         async function handleFormSubmit(e) {
             e.preventDefault();
             
             const formData = {
                 animal: document.getElementById('animal').value,
                 species: document.getElementById('species').value || null,
+                quantity: parseInt(document.getElementById('quantity').value, 10) || 1, // Adicionado
                 date: document.getElementById('date').value,
                 time: document.getElementById('time').value,
                 location: normalizeLocation(document.getElementById('location').value),
@@ -2359,13 +2398,14 @@
             document.getElementById('rescueForm').reset();
             editingId = null;
         }
-
+        
+        // MODIFICADO: Adiciona a coluna Quantidade na exportação
         function exportData() {
             if (filteredData.length === 0) return showError('Não há dados para exportar!');
             
-            const headers = "Pelotao,Animal,Espécie,Data,Horário,Localização,Tipo_Area,Observações,Fonte,Período,Exportado_por\n";
+            const headers = "Pelotao,Animal,Espécie,Quantidade,Data,Horário,Localização,Tipo_Area,Observações,Fonte,Período,Exportado_por\n";
             const csvContent = "data:text/csv;charset=utf-8," + headers + filteredData.map(r => 
-                `"${r.pelotao || ''}","${r.animal}","${r.species || ''}","${r.date}","${r.time}","${r.location}","${r.areaType || ''}","${(r.observations || '').replace(/"/g, '""')}","Firebase","${currentPeriod}","${currentUser.email}"`
+                `"${r.pelotao || ''}","${r.animal}","${r.species || ''}","${r.quantity || 1}","${r.date}","${r.time}","${r.location}","${r.areaType || ''}","${(r.observations || '').replace(/"/g, '""')}","Firebase","${currentPeriod}","${currentUser.email}"`
             ).join("\n");
 
             const link = document.createElement("a");
